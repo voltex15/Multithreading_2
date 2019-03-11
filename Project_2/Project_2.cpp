@@ -3,6 +3,8 @@
 #include <vector>
 #include <ctime>
 #include <math.h>
+#include <fstream>
+#include <string>
 
 using namespace std;
 
@@ -87,6 +89,23 @@ double simpsonMethod(int numberOfSteps, double a, double b, double c, double beg
 	return result;
 }
 
+vector<string> getFromFile()
+{
+	string str;
+	vector<string> fileContents;
+
+	ifstream myfile;
+	myfile.open("input.txt");
+
+	while (getline(myfile, str))
+	{
+		fileContents.push_back(str);
+	}
+
+	myfile.close();
+	return fileContents;
+}
+
 
 int main()
 {
@@ -100,8 +119,9 @@ int main()
 	double b = 3;
 	double c = 4;
 
-	double sumResult = 0;
 	double integralRangeArr[numberOfSteps];
+
+
 
 	for (int i = 0; i < numberOfSteps; i++)
 	{

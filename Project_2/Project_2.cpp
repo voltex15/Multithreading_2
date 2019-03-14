@@ -5,6 +5,7 @@
 #include <math.h>
 #include <fstream>
 #include <string>
+#include <cstdlib>
 
 using namespace std;
 
@@ -89,13 +90,13 @@ double simpsonMethod(int numberOfSteps, double a, double b, double c, double beg
 	return result;
 }
 
-vector<string> getFromFile()
+vector<string> getFromFile(string filePath)
 {
 	string str;
 	vector<string> fileContents;
 
 	ifstream myfile;
-	myfile.open("input.txt");
+	myfile.open(filePath);
 
 	while (getline(myfile, str))
 	{
@@ -106,80 +107,299 @@ vector<string> getFromFile()
 	return fileContents;
 }
 
-
-int main()
+vector<string> split(const string& str, const string& delim)
 {
-	// Deklaracja danych poczatkowych
-	double beginPoint = -2;
-	double endPoint = 2;
+	vector<string> tokens;
+	size_t prev = 0, pos = 0;
+	do
+	{
+		pos = str.find(delim, prev);
+		if (pos == string::npos) pos = str.length();
+		string token = str.substr(prev, pos - prev);
+		if (!token.empty()) tokens.push_back(token);
+		prev = pos + delim.length();
+	} while (pos < str.length() && prev < str.length());
+
+	return tokens;
+}
+
+void saveToFile(
+	string extraInfo,
+	double resultRectangles,
+	double measurementTimeRectangle, 
+	double resultTrapezoidal, 
+	double measurementTimeTrapezoidal,
+	double resultSimpson,
+	double measurementTimeSimpson
+)
+{
+	ofstream myFile;
+	myFile.open("result.csv", ios_base::app);
+	myFile << "\n" 
+		+ to_string(resultRectangles)
+		+ "," + extraInfo
+		+ "," + to_string(measurementTimeRectangle)
+		+ "," + to_string(resultTrapezoidal)
+		+ "," + to_string(measurementTimeTrapezoidal)
+		+ "," + to_string(resultSimpson)
+		+ "," + to_string(measurementTimeSimpson);
+	myFile.close();
+}
+
+int main(int argc, char *argv[])
+{
+	string filePath;
+	cin >> filePath;
 	const int numberOfSteps = 100000;
-
-	// Deklaracja zmiennych a, b i c dla funkcji
-	double a = 2;
-	double b = 3;
-	double c = 4;
-
 	double integralRangeArr[numberOfSteps];
 
+	vector<string> allLinesFromFile = getFromFile(filePath);
+	int countLines = allLinesFromFile.size();
 
+	auto step_size = 100ul;
+	auto total_steps = countLines;
+	size_t steps_completed = 0;
 
-	for (int i = 0; i < numberOfSteps; i++)
+	double measurementOneThread = 0;
+	double measurementFourThread = 0;
+
+	clock_t beginTimeOneThread = clock();
+	// For 1 Thread
+	for (int i = 0; i < countLines; i++)
 	{
-		double result = 0;
-		double iterator = i + 1;
+		vector<string> splitResultLine = split(allLinesFromFile[i], ",");
 
-		result = beginPoint + ((iterator / numberOfSteps) * (endPoint - beginPoint));
-		if (i == 1)
+		double a = stod(splitResultLine[0]);
+		double b = stod(splitResultLine[1]);
+		double c = stod(splitResultLine[2]);
+		double beginPoint = stod(splitResultLine[3]);
+		double endPoint = stod(splitResultLine[4]);
+
+		for (int i = 0; i < numberOfSteps; i++)
 		{
-			result = (int)beginPoint;
+			double result = 0;
+			double iterator = i + 1;
+
+			result = beginPoint + ((iterator / numberOfSteps) * (endPoint - beginPoint));
+			if (i == 1)
+			{
+				result = (int)beginPoint;
+			}
+			integralRangeArr[i] = result;
 		}
-		integralRangeArr[i] = result;
+		double distanceBetweenPoints = getDistanceBetweenPoints(beginPoint, endPoint, numberOfSteps);
+
+
+		// --- METODA PROSTAKATOW ---
+		double measurementTimeRectangle = 0;
+
+		clock_t beginTime = clock();
+		double resultRectangles = rectanglesMethod(numberOfSteps, a, b, c, beginPoint, endPoint, integralRangeArr);
+		clock_t endTime = clock();
+		measurementTimeRectangle = double(endTime - beginTime) / CLOCKS_PER_SEC;
+
+		// --- METODA TRAPEZOW ---
+		double measurementTimeTrapezoidal = 0;
+
+		beginTime = clock();
+		double resultTrapezoidal = trapezoidalMethod(numberOfSteps, a, b, c, beginPoint, endPoint, integralRangeArr);
+		endTime = clock();
+		measurementTimeTrapezoidal = double(endTime - beginTime) / CLOCKS_PER_SEC;
+
+		// --- METODA SIMPSONA ---
+		double measurementTimeSimpson = 0;
+
+		beginTime = clock();
+		double resultSimpson = simpsonMethod(numberOfSteps, a, b, c, beginPoint, endPoint, integralRangeArr);
+		endTime = clock();
+		measurementTimeSimpson = double(endTime - beginTime) / CLOCKS_PER_SEC;
+
+		saveToFile("Thread 1", resultRectangles, measurementTimeRectangle, resultTrapezoidal, measurementTimeTrapezoidal, resultSimpson, measurementTimeSimpson);
+
+		++steps_completed;
+
+		if (steps_completed % 10 == 1)
+		{
+			system("cls");
+			int j = 0;
+			cout << "[";
+			int percent = 100 * steps_completed / total_steps;
+			int percentStep = 1;
+			if (percent > 0 && percent < 10)
+			{
+				percentStep = 1;
+			}
+			else if (percent >= 10 && percent < 20)
+			{
+				percentStep = 2;
+			}
+			else if (percent >= 20 && percent < 30)
+			{
+				percentStep = 3;
+			}
+			else if (percent >= 40 && percent < 50)
+			{
+				percentStep = 4;
+			}
+			else if (percent >= 50 && percent < 60)
+			{
+				percentStep = 5;
+			}
+			else if (percent >= 60 && percent < 70)
+			{
+				percentStep = 6;
+			}
+			else if (percent >= 70 && percent < 80)
+			{
+				percentStep = 7;
+			}
+			else if (percent >= 80 && percent < 90)
+			{
+				percentStep = 8;
+			}
+			else if (percent >= 90 && percent < 100)
+			{
+				percentStep = 9;
+			}
+			for (j; j < percentStep; j++)
+			{
+				cout << "* ";
+			}
+			for (int k = 0; k < 10 - percentStep; k++)
+			{
+				cout << ". ";
+			}
+			cout << "] ";
+			cout << (100.0 * steps_completed / total_steps) << "%";
+		}
 	}
+	clock_t endTimeOneThread = clock();
+	measurementOneThread = double(endTimeOneThread - beginTimeOneThread) / CLOCKS_PER_SEC;
 
-	double distanceBetweenPoints = getDistanceBetweenPoints(beginPoint, endPoint, numberOfSteps);
+	system("cls");
+	cout << "[* * * * * * * * * * ] 100%";
 
-	// --- METODA PROSTAKATOW ---
-	double measurementTime = 0;
+	steps_completed = 0;
 
-	clock_t beginTime = clock();
-	double resultRectangles = rectanglesMethod(numberOfSteps, a, b, c, beginPoint, endPoint, integralRangeArr);
-	clock_t endTime = clock();
-	measurementTime = double(endTime - beginTime) / CLOCKS_PER_SEC;
+	// For 4 Thread
+	clock_t beginTimeFourThread = clock();
+	#pragma omp parallel for
+	for (int i = 0; i < countLines; i++)
+	{
+		vector<string> splitResultLine = split(allLinesFromFile[i], ",");
 
-	cout << "--- METODA PROSTAKATOW ---" << endl << endl;
+		double a = stod(splitResultLine[0]);
+		double b = stod(splitResultLine[1]);
+		double c = stod(splitResultLine[2]);
+		double beginPoint = stod(splitResultLine[3]);
+		double endPoint = stod(splitResultLine[4]);
 
-	cout << "Całka z funkcji:" << endl <<
-		"f(x) = " << a << "x^2 + " << b << "x + " << c << " wynosi: " << resultRectangles << endl;
+		for (int i = 0; i < numberOfSteps; i++)
+		{
+			double result = 0;
+			double iterator = i + 1;
 
-	cout << "Czas dla jednego wątku: " << measurementTime << endl;
+			result = beginPoint + ((iterator / numberOfSteps) * (endPoint - beginPoint));
+			if (i == 1)
+			{
+				result = (int)beginPoint;
+			}
+			integralRangeArr[i] = result;
+		}
+		double distanceBetweenPoints = getDistanceBetweenPoints(beginPoint, endPoint, numberOfSteps);
 
-	// --- METODA TRAPEZOW ---
-	// Wyzerowanie czasu
-	measurementTime = 0;
+		// --- METODA PROSTAKATOW ---
+		double measurementTimeRectangle = 0;
 
-	beginTime = clock();
-	double resultTrapezoidal = trapezoidalMethod(numberOfSteps, a, b, c, beginPoint, endPoint, integralRangeArr);
-	endTime = clock();
-	measurementTime = double(endTime - beginTime) / CLOCKS_PER_SEC;
+		clock_t beginTime = clock();
+		double resultRectangles = rectanglesMethod(numberOfSteps, a, b, c, beginPoint, endPoint, integralRangeArr);
+		clock_t endTime = clock();
+		measurementTimeRectangle = double(endTime - beginTime) / CLOCKS_PER_SEC;
 
-	cout << endl << "--- METODA TRAPEZÓW ---" << endl << endl;
-	cout << "Całka z funkcji:" << endl <<
-		"f(x) = " << a << "x^2 + " << b << "x + " << c << " wynosi: " << resultTrapezoidal << endl;
-	cout << "Czas dla jednego wątku: " << measurementTime << endl;
+		// --- METODA TRAPEZOW ---
+		double measurementTimeTrapezoidal = 0;
 
-	// --- METODA SIMPSONA ---
-	// Wyzerowanie czasu
-	measurementTime = 0;
+		beginTime = clock();
+		double resultTrapezoidal = trapezoidalMethod(numberOfSteps, a, b, c, beginPoint, endPoint, integralRangeArr);
+		endTime = clock();
+		measurementTimeTrapezoidal = double(endTime - beginTime) / CLOCKS_PER_SEC;
 
-	beginTime = clock();
-	double resultSimpson = simpsonMethod(numberOfSteps, a, b, c, beginPoint, endPoint, integralRangeArr);
-	endTime = clock();
-	measurementTime = double(endTime - beginTime) / CLOCKS_PER_SEC;
+		// --- METODA SIMPSONA ---
+		double measurementTimeSimpson = 0;
 
-	cout << endl << "--- METODA SIMPSONA ---" << endl << endl;
-	cout << "Całka z funkcji:" << endl <<
-		"f(x) = " << a << "x^2 + " << b << "x + " << c << " wynosi: " << resultSimpson << endl;
-	cout << "Czas dla jednego wątku: " << measurementTime << endl;
+		beginTime = clock();
+		double resultSimpson = simpsonMethod(numberOfSteps, a, b, c, beginPoint, endPoint, integralRangeArr);
+		endTime = clock();
+		measurementTimeSimpson = double(endTime - beginTime) / CLOCKS_PER_SEC;
+
+		saveToFile("Thread 4", resultRectangles, measurementTimeRectangle, resultTrapezoidal, measurementTimeTrapezoidal, resultSimpson, measurementTimeSimpson);
+		
+		#pragma omp atomic
+		++steps_completed;
+
+		#pragma omp critical
+		if (steps_completed % 10 == 1)
+		{
+			system("cls");
+			int j = 0;
+			cout << "[";
+			int percent = 100 * steps_completed / total_steps;
+			int percentStep = 1;
+			if (percent > 0 && percent < 10)
+			{
+				percentStep = 1;
+			}
+			else if (percent >= 10 && percent < 20)
+			{
+				percentStep = 2;
+			}
+			else if (percent >= 20 && percent < 30)
+			{
+				percentStep = 3;
+			}
+			else if (percent >= 40 && percent < 50)
+			{
+				percentStep = 4;
+			}
+			else if (percent >= 50 && percent < 60)
+			{
+				percentStep = 5;
+			}
+			else if (percent >= 60 && percent < 70)
+			{
+				percentStep = 6;
+			}
+			else if (percent >= 70 && percent < 80)
+			{
+				percentStep = 7;
+			}
+			else if (percent >= 80 && percent < 90)
+			{
+				percentStep = 8;
+			}
+			else if (percent >= 90 && percent < 100)
+			{
+				percentStep = 9;
+			}
+			for (j; j < percentStep; j++)
+			{
+				cout << "* ";
+			}
+			for (int k = 0; k < 10 - percentStep; k++)
+			{
+				cout << ". ";
+			}
+			cout << "] ";
+			cout << (100.0 * steps_completed / total_steps) << "%";
+		}
+	}
+	clock_t endTimeFourThread = clock();
+	measurementFourThread = double(endTimeFourThread - beginTimeFourThread) / CLOCKS_PER_SEC;
+
+	system("cls");
+	cout << "[* * * * * * * * * * ] 100%" << endl << endl;
+	cout << "Czas dla 1 watku: " << measurementOneThread << endl;
+	cout << "Czas dla 4 watku: " << measurementFourThread << endl;
 
 	return 0;
 }
